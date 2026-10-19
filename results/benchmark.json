@@ -1,0 +1,204 @@
+{
+ "A. thaliana chloroplast": {
+  "length": 154478,
+  "n_truth": 70,
+  "n_neutral_features": 34,
+  "tau": 0.024868966804932037,
+  "n_seeds": 50,
+  "trained": true,
+  "n_shadow": 470,
+  "youden": 0.9089361702127658,
+  "methods": {
+   "LongORF>=300": {
+    "n_pred": 71,
+    "TP": 45,
+    "FP": 11,
+    "neutral": 15,
+    "FN": 25,
+    "recall": 0.6428571428571429,
+    "precision": 0.8035714285714286,
+    "f1": 0.7142857142857142,
+    "exact_recall": 0.42857142857142855
+   },
+   "Pyrodigal-single": {
+    "n_pred": 122,
+    "TP": 58,
+    "FP": 43,
+    "neutral": 21,
+    "FN": 12,
+    "recall": 0.8285714285714286,
+    "precision": 0.5742574257425742,
+    "f1": 0.6783625730994152,
+    "exact_recall": 0.6428571428571429
+   },
+   "Pyrodigal-meta": {
+    "n_pred": 97,
+    "TP": 61,
+    "FP": 14,
+    "neutral": 22,
+    "FN": 9,
+    "recall": 0.8714285714285714,
+    "precision": 0.8133333333333334,
+    "f1": 0.8413793103448276,
+    "exact_recall": 0.7428571428571429
+   },
+   "CodonLLR-only": {
+    "n_pred": 105,
+    "TP": 60,
+    "FP": 23,
+    "neutral": 22,
+    "FN": 10,
+    "recall": 0.8571428571428571,
+    "precision": 0.7228915662650602,
+    "f1": 0.7843137254901961,
+    "exact_recall": 0.6142857142857143
+   },
+   "CodonRescore(single)": {
+    "n_pred": 93,
+    "TP": 56,
+    "FP": 16,
+    "neutral": 21,
+    "FN": 14,
+    "recall": 0.8,
+    "precision": 0.7777777777777778,
+    "f1": 0.7887323943661971,
+    "exact_recall": 0.6142857142857143
+   },
+   "CodonRescore(meta)": {
+    "n_pred": 98,
+    "TP": 60,
+    "FP": 17,
+    "neutral": 21,
+    "FN": 10,
+    "recall": 0.8571428571428571,
+    "precision": 0.7792207792207793,
+    "f1": 0.8163265306122449,
+    "exact_recall": 0.7285714285714285
+   }
+  },
+  "aux": {
+   "Pyrodigal-single": {
+    "pruned": 38,
+    "rescued": 9
+   },
+   "Pyrodigal-meta": {
+    "pruned": 9,
+    "rescued": 10
+   }
+  },
+  "aux_detail": {
+   "Pyrodigal-single": {
+    "pruned_true": 3,
+    "rescued_true": 1
+   },
+   "Pyrodigal-meta": {
+    "pruned_true": 1,
+    "rescued_true": 0
+   }
+  }
+ },
+ "Y. pestis plasmid pPCP1": {
+  "length": 9609,
+  "n_truth": 10,
+  "n_neutral_features": 0,
+  "tau": -0.055768866247652586,
+  "n_seeds": 10,
+  "trained": true,
+  "n_shadow": 56,
+  "youden": 0.592857142857143,
+  "methods": {
+   "LongORF>=300": {
+    "n_pred": 10,
+    "TP": 9,
+    "FP": 1,
+    "neutral": 0,
+    "FN": 1,
+    "recall": 0.9,
+    "precision": 0.9,
+    "f1": 0.9,
+    "exact_recall": 0.8
+   },
+   "Pyrodigal-meta": {
+    "n_pred": 9,
+    "TP": 9,
+    "FP": 0,
+    "neutral": 0,
+    "FN": 1,
+    "recall": 0.9,
+    "precision": 1.0,
+    "f1": 0.9473684210526316,
+    "exact_recall": 0.6
+   },
+   "CodonLLR-only": {
+    "n_pred": 16,
+    "TP": 9,
+    "FP": 7,
+    "neutral": 0,
+    "FN": 1,
+    "recall": 0.9,
+    "precision": 0.5625,
+    "f1": 0.6923076923076923,
+    "exact_recall": 0.8
+   },
+   "CodonRescore(meta)": {
+    "n_pred": 13,
+    "TP": 10,
+    "FP": 3,
+    "neutral": 0,
+    "FN": 0,
+    "recall": 1.0,
+    "precision": 0.7692307692307693,
+    "f1": 0.8695652173913044,
+    "exact_recall": 0.7
+   }
+  },
+  "aux": {
+   "Pyrodigal-meta": {
+    "pruned": 0,
+    "rescued": 4
+   }
+  },
+  "aux_detail": {
+   "Pyrodigal-meta": {
+    "pruned_true": 0,
+    "rescued_true": 1
+   }
+  }
+ },
+ "phiX174 phage": {
+  "length": 5386,
+  "n_truth": 8,
+  "n_neutral_features": 6,
+  "tau": NaN,
+  "n_seeds": 0,
+  "trained": false,
+  "n_shadow": 0,
+  "youden": NaN,
+  "methods": {
+   "LongORF>=300": {
+    "n_pred": 11,
+    "TP": 5,
+    "FP": 5,
+    "neutral": 1,
+    "FN": 3,
+    "recall": 0.625,
+    "precision": 0.5,
+    "f1": 0.5555555555555556,
+    "exact_recall": 0.375
+   },
+   "Pyrodigal-meta": {
+    "n_pred": 7,
+    "TP": 6,
+    "FP": 0,
+    "neutral": 1,
+    "FN": 2,
+    "recall": 0.75,
+    "precision": 1.0,
+    "f1": 0.8571428571428571,
+    "exact_recall": 0.75
+   }
+  },
+  "aux": {},
+  "aux_detail": {}
+ }
+}

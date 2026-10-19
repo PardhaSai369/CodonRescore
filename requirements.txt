@@ -1,0 +1,5 @@
+numpy
+matplotlib
+biopython
+pyrodigal==3.7.1
+python-pptx

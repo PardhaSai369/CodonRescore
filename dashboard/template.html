@@ -1,0 +1,243 @@
+<title>Gene Caller Audit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky control bar, summary tiles first, then genome track, comparison, threshold explorer, error anatomy. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --ink:#16212b; --ink2:#4a5a68; --muted:#7a8996; --line:#dbe2e8; --grid:#e8edf1;
+  --tp:#0072b2; --fp:#d55e00; --miss:#16212b; --neutral:#aab5bf; --accent:#0b6e6e; --accent-bg:#dff0ef; --warn:#9a5b00; --warn-bg:#fbefd6;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f161c; --surface:#17212a; --ink:#e7edf2; --ink2:#a9b8c5; --muted:#7e8f9d; --line:#2a3845; --grid:#22303b;
+  --tp:#4aa8e0; --fp:#f08a45; --miss:#e7edf2; --neutral:#566573; --accent:#5cc4bf; --accent-bg:#17353a; --warn:#e8b45c; --warn-bg:#33291a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --surface:#17212a; --ink:#e7edf2; --ink2:#a9b8c5; --muted:#7e8f9d; --line:#2a3845; --grid:#22303b;
+  --tp:#4aa8e0; --fp:#f08a45; --miss:#e7edf2; --neutral:#566573; --accent:#5cc4bf; --accent-bg:#17353a; --warn:#e8b45c; --warn-bg:#33291a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);padding-block:0 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto}
+header.top{padding-block:22px 14px}
+h1{font-size:24px;line-height:1.2;margin:0 0 4px;font-weight:600;text-wrap:balance}
+.sub{color:var(--ink2);max-width:72ch;margin:0}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.lbl{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+button.chip{font:500 13px var(--sans);color:var(--ink2);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+button.chip:hover{border-color:var(--accent);color:var(--ink)}
+button.chip[aria-pressed="true"]{background:var(--accent-bg);border-color:var(--accent);color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{display:grid;gap:18px;padding-top:18px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.tile .k{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font:500 28px/1.2 var(--mono);font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .n{font-size:12px;color:var(--ink2);margin-top:2px}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+section.p{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+section.p h2{font-size:15px;margin:0 0 2px;font-weight:600}
+section.p .d{color:var(--ink2);font-size:13px;margin:0 0 12px;max-width:70ch}
+.scroll{overflow-x:auto}
+svg{display:block;width:100%;height:auto}
+svg text{fill:var(--ink2);font:11px var(--mono)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--ink2);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.readout{font:13px var(--mono);color:var(--ink2);min-height:20px;margin-top:6px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+tr.sel td{background:var(--accent-bg)}
+.note{background:var(--warn-bg);color:var(--ink);border-radius:6px;padding:10px 12px;font-size:13px}
+.note b{color:var(--warn)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.big{font:500 20px var(--mono);font-variant-numeric:tabular-nums}
+footer{color:var(--muted);font-size:12px;padding-top:22px;max-width:90ch}
+.stat{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.stat span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <h1>Gene Caller Audit</h1>
+  <p class="sub">Pyrodigal and CodonRescore scored against RefSeq annotation on three real genomes. Pick a genome and a method; every number and mark below comes from the experiment run.</p>
+</header>
+
+<div class="bar" role="toolbar" aria-label="Controls">
+  <div class="grp"><span class="lbl">Genome</span><span id="genomes" class="grp"></span></div>
+  <div class="grp"><span class="lbl">Method</span><span id="methods" class="grp"></span></div>
+</div>
+
+<main>
+  <div id="small" class="note" hidden></div>
+  <div class="tiles" id="tiles"></div>
+
+  <section class="p">
+    <h2>Genome track</h2>
+    <p class="d">Annotated genes (top) against the selected method's calls (bottom). Forward-strand features sit above each lane's centre line, reverse-strand below. Hover a mark for details.</p>
+    <div class="scroll"><svg id="track" viewBox="0 0 1100 250" role="img" aria-label="Genome track of annotated genes and predictions"></svg></div>
+    <div class="legend" id="tlegend"></div>
+    <div class="readout" id="readout">&nbsp;</div>
+  </section>
+
+  <div class="cols">
+    <section class="p">
+      <h2>Method comparison</h2>
+      <p class="d">Bars show F1. Ticks mark precision (circle) and recall (diamond). Click a row to select that method.</p>
+      <svg id="cmp" viewBox="0 0 520 270" role="img" aria-label="F1, precision and recall by method"></svg>
+      <div class="scroll"><table id="cmptable"></table></div>
+    </section>
+
+    <section class="p">
+      <h2>Threshold explorer <span style="font-weight:400;color:var(--muted)">(chloroplast)</span></h2>
+      <p class="d">Shift CodonRescore's unsupervised threshold after the fact. Dotted line is unmodified Pyrodigal. These are sensitivity results, not tuned settings.</p>
+      <div class="row" style="margin-bottom:8px">
+        <span class="grp" id="sensmode"></span>
+        <span class="big" id="sensval"></span>
+      </div>
+      <input type="range" id="sens" min="0" max="7" step="1" value="3" aria-label="Threshold offset">
+      <svg id="sensplot" viewBox="0 0 520 220" role="img" aria-label="F1 against threshold offset"></svg>
+      <div class="readout" id="sensread"></div>
+    </section>
+  </div>
+
+  <div class="cols">
+    <section class="p">
+      <h2>Recall by gene length <span style="font-weight:400;color:var(--muted)">(chloroplast)</span></h2>
+      <p class="d">All methods recover every long gene. The differences are in the 25 genes under 300 nt.</p>
+      <svg id="len" viewBox="0 0 520 240" role="img" aria-label="Recall by true CDS length"></svg>
+      <div class="legend" id="llegend"></div>
+    </section>
+    <section class="p">
+      <h2>Where the false positives come from</h2>
+      <p class="d">Anatomy of the 43 false calls made by self-trained Pyrodigal on the chloroplast genome.</p>
+      <div id="anat"></div>
+      <h2 style="margin-top:16px">Larger genome, no truth set</h2>
+      <p class="d"><i>C. diphtheriae</i> NCTC11397 (2.46 Mb). Agreement only; accuracy cannot be claimed.</p>
+      <div id="cd"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  Data: real NCBI records distributed with the Biopython 1.85 and Pyrodigal 3.7.1 test suites. A call counts as correct when strand and stop codon match a single-exon annotated CDS. Multi-exon genes, pseudogenes and genes spanning the sequence origin are neutral and excluded from precision. With 70 evaluable chloroplast genes, F1 intervals overlap between most methods.
+</footer>
+</div>
+
+<script>
+const D = /*DATA*/;
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const f3 = x => (x == null || isNaN(x)) ? "–" : x.toFixed(3);
+const GEN = Object.keys(D.records);
+const SHORT = {"A. thaliana chloroplast":"A. thaliana chloroplast","Y. pestis plasmid pPCP1":"Y. pestis plasmid","phiX174 phage":"phiX174 phage"};
+const MORDER = ["LongORF>=300","Pyrodigal-single","Pyrodigal-meta","CodonLLR-only","CodonRescore(single)","CodonRescore(meta)"];
+const MLAB = {"LongORF>=300":"Long ORF ≥300","Pyrodigal-single":"Pyrodigal single","Pyrodigal-meta":"Pyrodigal meta","CodonLLR-only":"Codon LLR only","CodonRescore(single)":"CodonRescore (single)","CodonRescore(meta)":"CodonRescore (meta)"};
+let S = {g: GEN[0], m: "CodonRescore(single)", sm: "single"};
+
+function el(tag, attrs, parent, text){ const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+function chip(parent, label, pressed, fn, disabled){ const b = document.createElement("button"); b.className = "chip"; b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", pressed); if (disabled) { b.disabled = true; b.style.opacity = .4; b.title = "Not applicable on this genome"; } b.onclick = fn; parent.appendChild(b); return b; }
+const avail = () => MORDER.filter(m => D.benchmark[S.g].methods[m]);
+
+function controls(){
+  $("genomes").innerHTML = ""; GEN.forEach(g => chip($("genomes"), SHORT[g], g === S.g, () => { S.g = g; if (!avail().includes(S.m)) S.m = avail().includes("Pyrodigal-meta") ? "Pyrodigal-meta" : avail()[0]; render(); }));
+  $("methods").innerHTML = ""; MORDER.forEach(m => chip($("methods"), MLAB[m], m === S.m, () => { S.m = m; render(); }, !avail().includes(m)));
+}
+
+function tiles(){
+  const s = D.benchmark[S.g].methods[S.m]; const ci = S.g === GEN[0] ? D.analysis.bootstrap_f1_ci[S.m] : null;
+  const items = [["Precision", f3(s.precision), s.TP + " correct of " + (s.TP + s.FP) + " scored calls"],
+    ["Recall", f3(s.recall), (D.benchmark[S.g].n_truth - s.FN) + " of " + D.benchmark[S.g].n_truth + " genes found"],
+    ["F1", f3(s.f1), ci ? "95% CI " + ci[0].toFixed(2) + "–" + ci[1].toFixed(2) : "interval not computed"],
+    ["False positives", s.FP, s.neutral + " neutral calls excluded"],
+    ["Exact start+stop", f3(s.exact_recall), "recall with start also matching"]];
+  $("tiles").innerHTML = items.map(i => `<div class="tile"><div class="k">${i[0]}</div><div class="v">${i[1]}</div><div class="n">${i[2]}</div></div>`).join("");
+  const b = D.benchmark[S.g];
+  const n = $("small");
+  if (b.n_truth < 20) { n.hidden = false; n.innerHTML = `<b>Small sample.</b> This genome has only ${b.n_truth} evaluable genes${b.trained ? "" : "; CodonRescore could not train (too few long ORFs)"}. One gene changes recall by ${(100 / b.n_truth).toFixed(0)} points.`; } else n.hidden = true;
+}
+
+function track(){
+  const svg = $("track"); svg.innerHTML = "";
+  const R = D.records[S.g], L = R.length, x0 = 60, W = 1020, sx = p => x0 + p / L * W;
+  const missed = new Set(R.methods[S.m] ? R.methods[S.m].missed : []);
+  const lanes = [{y: 70, name: "Annotation"}, {y: 175, name: "Calls"}];
+  lanes.forEach(l => { el("line", {x1: x0, x2: x0 + W, y1: l.y, y2: l.y, stroke: "var(--line)"}, svg); el("text", {x: 0, y: l.y + 4}, svg, l.name); });
+  for (let i = 0; i <= 5; i++) { const p = L * i / 5; el("line", {x1: sx(p), x2: sx(p), y1: 225, y2: 230, stroke: "var(--muted)"}, svg); el("text", {x: sx(p), y: 244, "text-anchor": i === 0 ? "start" : i === 5 ? "end" : "middle"}, svg, (p / 1000).toFixed(L > 50000 ? 0 : 1) + " kb"); }
+  const gene = (b, e, st, y, cls, info) => {
+    const w = Math.max(1.6, sx(e) - sx(b)), h = 26, yy = st > 0 ? y - h - 2 : y + 2;
+    const r = el("rect", {x: sx(b), y: yy, width: w, height: h, rx: 1.5}, svg);
+    if (cls === "tp") { r.setAttribute("fill", "var(--tp)"); }
+    else if (cls === "fp") { r.setAttribute("fill", "var(--fp)"); }
+    else if (cls === "miss") { r.setAttribute("fill", "none"); r.setAttribute("stroke", "var(--miss)"); r.setAttribute("stroke-width", "1.4"); r.setAttribute("stroke-dasharray", "3 2"); }
+    else if (cls === "neu") { r.setAttribute("fill", "var(--neutral)"); }
+    r.style.cursor = "pointer";
+    r.addEventListener("mouseenter", () => $("readout").textContent = info);
+    r.addEventListener("focus", () => $("readout").textContent = info);
+    // widen hit target
+    return r;
+  };
+  R.neutral.forEach(n => gene(n[0], n[1], n[2], lanes[0].y, "neu", `Neutral annotation ${n[0]}–${n[1]} (${n[2] > 0 ? "+" : "−"}), multi-exon or pseudo, not scored`));
+  R.truth.forEach((t, i) => gene(t[0], t[1], t[2], lanes[0].y, missed.has(i) ? "miss" : "tp", `${t[3] || "CDS"} · ${t[0]}–${t[1]} (${t[2] > 0 ? "+" : "−"}) · ${t[1] - t[0] + 1} nt · ${missed.has(i) ? "MISSED by " + MLAB[S.m] : "found"}`));
+  const M = R.methods[S.m];
+  if (M) M.calls.forEach(c => gene(c[0], c[1], c[2], lanes[1].y, c[3] === "TP" ? "tp" : c[3] === "FP" ? "fp" : "neu", `${c[3] === "TP" ? "Correct call" : c[3] === "FP" ? "False positive" : "Neutral call"} · ${c[0]}–${c[1]} (${c[2] > 0 ? "+" : "−"}) · ${c[1] - c[0] + 1} nt`));
+  el("text", {x: x0 + W, y: 14, "text-anchor": "end"}, svg, "▲ forward strand above centre line, ▼ reverse below");
+  $("tlegend").innerHTML = '<span><i style="background:var(--tp)"></i>Correct / found</span><span><i style="background:var(--fp)"></i>False positive</span><span><i style="border:1.4px dashed var(--miss)"></i>Missed gene</span><span><i style="background:var(--neutral)"></i>Neutral (not scored)</span>';
+  $("readout").innerHTML = "&nbsp;";
+}
+
+function cmp(){
+  const svg = $("cmp"); svg.innerHTML = ""; const ms = avail(), B = D.benchmark[S.g].methods, x0 = 150, W = 340, rh = 38;
+  for (let i = 0; i <= 4; i++) { const x = x0 + W * i / 4; el("line", {x1: x, x2: x, y1: 4, y2: 8 + rh * ms.length, stroke: "var(--grid)"}, svg); el("text", {x, y: 24 + rh * ms.length, "text-anchor": "middle"}, svg, (i / 4).toFixed(2)); }
+  ms.forEach((m, i) => {
+    const y = 10 + i * rh, s = B[m], g = el("g", {style: "cursor:pointer"}, svg); g.addEventListener("click", () => { S.m = m; render(); });
+    el("rect", {x: 0, y: y - 4, width: 520, height: rh - 2, fill: m === S.m ? "var(--accent-bg)" : "transparent", rx: 4}, g);
+    el("text", {x: 6, y: y + 16, style: "fill:var(--ink)"}, g, MLAB[m].replace("CodonRescore","CodonResc."));
+    el("rect", {x: x0, y: y + 6, width: Math.max(1, s.f1 * W), height: 14, rx: 2, fill: m.startsWith("CodonRescore") ? "var(--fp)" : m.startsWith("Pyrodigal") ? "var(--tp)" : "var(--neutral)"}, g);
+    el("text", {x: x0 + s.f1 * W + 5, y: y + 17}, g, s.f1.toFixed(3));
+    el("circle", {cx: x0 + s.precision * W, cy: y + 27, r: 3.5, fill: "var(--ink)"}, g);
+    const dx = x0 + s.recall * W; el("path", {d: `M${dx} ${y + 23}l4 4-4 4-4-4z`, fill: "var(--ink2)"}, g);
+  });
+  svg.setAttribute("viewBox", `0 0 520 ${34 + rh * ms.length}`);
+  $("cmptable").innerHTML = "<tr><th>Method</th><th>Calls</th><th>TP</th><th>FP</th><th>Prec</th><th>Rec</th><th>F1</th></tr>" + ms.map(m => { const s = B[m]; return `<tr class="${m === S.m ? "sel" : ""}"><td>${MLAB[m]}</td><td>${s.n_pred}</td><td>${s.TP}</td><td>${s.FP}</td><td>${f3(s.precision)}</td><td>${f3(s.recall)}</td><td>${f3(s.f1)}</td></tr>`; }).join("");
+}
+
+function sens(){
+  const A = D.analysis, rows = A.sens_tau[S.sm], i = +$("sens").value, base = D.benchmark[GEN[0]].methods["Pyrodigal-" + S.sm];
+  $("sensmode").innerHTML = ""; ["single", "meta"].forEach(k => chip($("sensmode"), "CodonRescore (" + k + ")", S.sm === k, () => { S.sm = k; sens(); }));
+  const r = rows[i]; $("sensval").textContent = "Δτ = " + (r.offset > 0 ? "+" : "") + r.offset.toFixed(1);
+  $("sensread").innerHTML = `F1 <b>${f3(r.f1)}</b> · precision ${f3(r.precision)} · recall ${f3(r.recall)} · unmodified Pyrodigal-${S.sm} F1 ${f3(base.f1)} (${r.f1 >= base.f1 ? "+" : ""}${(r.f1 - base.f1).toFixed(3)})`;
+  const svg = $("sensplot"); svg.innerHTML = ""; const x0 = 36, W = 470, y0 = 14, H = 170, X = k => x0 + k / 7 * W, Y = v => y0 + (1 - (v - 0.3) / 0.6) * H;
+  [0.3, 0.5, 0.7, 0.9].forEach(v => { el("line", {x1: x0, x2: x0 + W, y1: Y(v), y2: Y(v), stroke: "var(--grid)"}, svg); el("text", {x: 0, y: Y(v) + 4}, svg, v.toFixed(1)); });
+  rows.forEach((q, k) => el("text", {x: X(k), y: 206, "text-anchor": "middle"}, svg, (q.offset > 0 ? "+" : "") + q.offset.toFixed(1)));
+  el("line", {x1: x0, x2: x0 + W, y1: Y(base.f1), y2: Y(base.f1), stroke: "var(--tp)", "stroke-dasharray": "2 3"}, svg);
+  el("path", {d: rows.map((q, k) => (k ? "L" : "M") + X(k) + " " + Y(q.f1)).join(""), fill: "none", stroke: "var(--fp)", "stroke-width": 2}, svg);
+  rows.forEach((q, k) => el("circle", {cx: X(k), cy: Y(q.f1), r: k === i ? 6 : 3, fill: k === i ? "var(--fp)" : "var(--surface)", stroke: "var(--fp)", "stroke-width": 2}, svg));
+}
+
+function lenplot(){
+  const svg = $("len"); svg.innerHTML = ""; const st = D.analysis.length_strat, names = ["Pyrodigal-single", "Pyrodigal-meta", "CodonRescore(single)", "CodonRescore(meta)"], cols = ["var(--tp)", "var(--tp)", "var(--fp)", "var(--fp)"];
+  const labs = ["<300 nt", "300–599", "600–1199", "≥1200"], x0 = 34, W = 470, H = 170, y0 = 14, gw = W / 4;
+  [0, .25, .5, .75, 1].forEach(v => { const y = y0 + (1 - v) * H; el("line", {x1: x0, x2: x0 + W, y1: y, y2: y, stroke: "var(--grid)"}, svg); el("text", {x: 0, y: y + 4}, svg, v.toFixed(2)); });
+  labs.forEach((l, b) => {
+    names.forEach((n, k) => { const [h, t] = st[n][b], v = h / t, bw = 18, x = x0 + b * gw + 12 + k * (bw + 4), y = y0 + (1 - v) * H;
+      const r = el("rect", {x, y, width: bw, height: Math.max(1, v * H), fill: cols[k], rx: 2, opacity: k % 2 ? 1 : .55}, svg); const tt = el("title", {}, r, `${MLAB[n]}: ${h}/${t}`); });
+    el("text", {x: x0 + b * gw + gw / 2, y: 204, "text-anchor": "middle"}, svg, l);
+    el("text", {x: x0 + b * gw + gw / 2, y: 220, "text-anchor": "middle"}, svg, "n=" + st["Pyrodigal-meta"][b][1]);
+  });
+  $("llegend").innerHTML = '<span><i style="background:var(--tp);opacity:.55"></i>Pyrodigal single</span><span><i style="background:var(--tp)"></i>Pyrodigal meta</span><span><i style="background:var(--fp);opacity:.55"></i>CodonRescore single</span><span><i style="background:var(--fp)"></i>CodonRescore meta</span>';
+}
+
+function panels(){
+  const a = D.analysis, f = a.single_fp, c = a.cdiph;
+  $("anat").innerHTML = [["False positives (Pyrodigal single)", f.n], ["Shorter than 300 nt", a.single_fp_len_lt300], ["Median length", f.median_len + " nt"], ["Overlap an annotated tRNA or rRNA gene", f.in_rna], ["Overlap a true protein gene in another frame", f.overlap_true_gene_otherframe], ["Pruned by CodonRescore (3 were true genes)", D.benchmark[GEN[0]].aux["Pyrodigal-single"].pruned]].map(r => `<div class="stat"><span>${r[0]}</span><span>${r[1]}</span></div>`).join("");
+  $("cd").innerHTML = [["Genome length / GC", (c.length / 1e6).toFixed(2) + " Mb / " + (c.GC * 100).toFixed(1) + "%"], ["Pyrodigal single / meta calls", c.single.n_pyro.toLocaleString() + " / " + c.meta.n_pyro.toLocaleString()], ["Single vs meta stop agreement", f3(c.agree_single_meta_stop)], ["Seed ORFs / Youden J", c.n_seeds.toLocaleString() + " / " + c.youden.toFixed(3)], ["Pruned / rescued (single)", c.single.pruned + " / " + c.single.rescued], ["Pruned / rescued (meta)", c.meta.pruned + " / " + c.meta.rescued]].map(r => `<div class="stat"><span>${r[0]}</span><span>${r[1]}</span></div>`).join("");
+}
+
+function render(){ controls(); tiles(); track(); cmp(); }
+$("sens").addEventListener("input", sens);
+render(); sens(); lenplot(); panels();
+</script>

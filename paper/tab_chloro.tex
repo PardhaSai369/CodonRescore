@@ -1,0 +1,12 @@
+\begin{tabular}{lrrrrrrrl}
+\toprule
+Method & Pred. & TP & FP & Neut. & Prec. & Rec. & Exact rec. & F1 [95\% CI] \\
+\midrule
+LongORF$\geq$300 & 71 & 45 & 11 & 15 & 0.804 & 0.643 & 0.429 & 0.714 [0.63--0.79] \\
+Pyrodigal-single & 122 & 58 & 43 & 21 & 0.574 & 0.829 & 0.643 & 0.678 [0.59--0.75] \\
+Pyrodigal-meta & 97 & 61 & 14 & 22 & 0.813 & 0.871 & 0.743 & 0.841 [0.78--0.90] \\
+CodonLLR-only & 105 & 60 & 23 & 22 & 0.723 & 0.857 & 0.614 & 0.784 [0.72--0.84] \\
+CodonRescore(single) & 93 & 56 & 16 & 21 & 0.778 & 0.800 & 0.614 & 0.789 [0.72--0.85] \\
+CodonRescore(meta) & 98 & 60 & 17 & 21 & 0.779 & 0.857 & 0.729 & 0.816 [0.75--0.88] \\
+\bottomrule
+\end{tabular}

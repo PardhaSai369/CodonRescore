@@ -1,0 +1,243 @@
+<title>Gene Caller Audit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky control bar, summary tiles first, then genome track, comparison, threshold explorer, error anatomy. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --ink:#16212b; --ink2:#4a5a68; --muted:#7a8996; --line:#dbe2e8; --grid:#e8edf1;
+  --tp:#0072b2; --fp:#d55e00; --miss:#16212b; --neutral:#aab5bf; --accent:#0b6e6e; --accent-bg:#dff0ef; --warn:#9a5b00; --warn-bg:#fbefd6;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f161c; --surface:#17212a; --ink:#e7edf2; --ink2:#a9b8c5; --muted:#7e8f9d; --line:#2a3845; --grid:#22303b;
+  --tp:#4aa8e0; --fp:#f08a45; --miss:#e7edf2; --neutral:#566573; --accent:#5cc4bf; --accent-bg:#17353a; --warn:#e8b45c; --warn-bg:#33291a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --surface:#17212a; --ink:#e7edf2; --ink2:#a9b8c5; --muted:#7e8f9d; --line:#2a3845; --grid:#22303b;
+  --tp:#4aa8e0; --fp:#f08a45; --miss:#e7edf2; --neutral:#566573; --accent:#5cc4bf; --accent-bg:#17353a; --warn:#e8b45c; --warn-bg:#33291a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);padding-block:0 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto}
+header.top{padding-block:22px 14px}
+h1{font-size:24px;line-height:1.2;margin:0 0 4px;font-weight:600;text-wrap:balance}
+.sub{color:var(--ink2);max-width:72ch;margin:0}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.lbl{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+button.chip{font:500 13px var(--sans);color:var(--ink2);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+button.chip:hover{border-color:var(--accent);color:var(--ink)}
+button.chip[aria-pressed="true"]{background:var(--accent-bg);border-color:var(--accent);color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{display:grid;gap:18px;padding-top:18px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.tile .k{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font:500 28px/1.2 var(--mono);font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .n{font-size:12px;color:var(--ink2);margin-top:2px}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+section.p{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+section.p h2{font-size:15px;margin:0 0 2px;font-weight:600}
+section.p .d{color:var(--ink2);font-size:13px;margin:0 0 12px;max-width:70ch}
+.scroll{overflow-x:auto}
+svg{display:block;width:100%;height:auto}
+svg text{fill:var(--ink2);font:11px var(--mono)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--ink2);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.readout{font:13px var(--mono);color:var(--ink2);min-height:20px;margin-top:6px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+tr.sel td{background:var(--accent-bg)}
+.note{background:var(--warn-bg);color:var(--ink);border-radius:6px;padding:10px 12px;font-size:13px}
+.note b{color:var(--warn)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.big{font:500 20px var(--mono);font-variant-numeric:tabular-nums}
+footer{color:var(--muted);font-size:12px;padding-top:22px;max-width:90ch}
+.stat{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.stat span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <h1>Gene Caller Audit</h1>
+  <p class="sub">Pyrodigal and CodonRescore scored against RefSeq annotation on three real genomes. Pick a genome and a method; every number and mark below comes from the experiment run.</p>
+</header>
+
+<div class="bar" role="toolbar" aria-label="Controls">
+  <div class="grp"><span class="lbl">Genome</span><span id="genomes" class="grp"></span></div>
+  <div class="grp"><span class="lbl">Method</span><span id="methods" class="grp"></span></div>
+</div>
+
+<main>
+  <div id="small" class="note" hidden></div>
+  <div class="tiles" id="tiles"></div>
+
+  <section class="p">
+    <h2>Genome track</h2>
+    <p class="d">Annotated genes (top) against the selected method's calls (bottom). Forward-strand features sit above each lane's centre line, reverse-strand below. Hover a mark for details.</p>
+    <div class="scroll"><svg id="track" viewBox="0 0 1100 250" role="img" aria-label="Genome track of annotated genes and predictions"></svg></div>
+    <div class="legend" id="tlegend"></div>
+    <div class="readout" id="readout">&nbsp;</div>
+  </section>
+
+  <div class="cols">
+    <section class="p">
+      <h2>Method comparison</h2>
+      <p class="d">Bars show F1. Ticks mark precision (circle) and recall (diamond). Click a row to select that method.</p>
+      <svg id="cmp" viewBox="0 0 520 270" role="img" aria-label="F1, precision and recall by method"></svg>
+      <div class="scroll"><table id="cmptable"></table></div>
+    </section>
+
+    <section class="p">
+      <h2>Threshold explorer <span style="font-weight:400;color:var(--muted)">(chloroplast)</span></h2>
+      <p class="d">Shift CodonRescore's unsupervised threshold after the fact. Dotted line is unmodified Pyrodigal. These are sensitivity results, not tuned settings.</p>
+      <div class="row" style="margin-bottom:8px">
+        <span class="grp" id="sensmode"></span>
+        <span class="big" id="sensval"></span>
+      </div>
+      <input type="range" id="sens" min="0" max="7" step="1" value="3" aria-label="Threshold offset">
+      <svg id="sensplot" viewBox="0 0 520 220" role="img" aria-label="F1 against threshold offset"></svg>
+      <div class="readout" id="sensread"></div>
+    </section>
+  </div>
+
+  <div class="cols">
+    <section class="p">
+      <h2>Recall by gene length <span style="font-weight:400;color:var(--muted)">(chloroplast)</span></h2>
+      <p class="d">All methods recover every long gene. The differences are in the 25 genes under 300 nt.</p>
+      <svg id="len" viewBox="0 0 520 240" role="img" aria-label="Recall by true CDS length"></svg>
+      <div class="legend" id="llegend"></div>
+    </section>
+    <section class="p">
+      <h2>Where the false positives come from</h2>
+      <p class="d">Anatomy of the 43 false calls made by self-trained Pyrodigal on the chloroplast genome.</p>
+      <div id="anat"></div>
+      <h2 style="margin-top:16px">Larger genome, no truth set</h2>
+      <p class="d"><i>C. diphtheriae</i> NCTC11397 (2.46 Mb). Agreement only; accuracy cannot be claimed.</p>
+      <div id="cd"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  Data: real NCBI records distributed with the Biopython 1.85 and Pyrodigal 3.7.1 test suites. A call counts as correct when strand and stop codon match a single-exon annotated CDS. Multi-exon genes, pseudogenes and genes spanning the sequence origin are neutral and excluded from precision. With 70 evaluable chloroplast genes, F1 intervals overlap between most methods.
+</footer>
+</div>
+
+<script>
+const D = {"benchmark":{"A. thaliana chloroplast":{"length":154478,"n_truth":70,"n_neutral_features":34,"tau":0.024868966804932037,"n_seeds":50,"trained":true,"n_shadow":470,"youden":0.9089361702127658,"methods":{"LongORF>=300":{"n_pred":71,"TP":45,"FP":11,"neutral":15,"FN":25,"recall":0.6428571428571429,"precision":0.8035714285714286,"f1":0.7142857142857142,"exact_recall":0.42857142857142855},"Pyrodigal-single":{"n_pred":122,"TP":58,"FP":43,"neutral":21,"FN":12,"recall":0.8285714285714286,"precision":0.5742574257425742,"f1":0.6783625730994152,"exact_recall":0.6428571428571429},"Pyrodigal-meta":{"n_pred":97,"TP":61,"FP":14,"neutral":22,"FN":9,"recall":0.8714285714285714,"precision":0.8133333333333334,"f1":0.8413793103448276,"exact_recall":0.7428571428571429},"CodonLLR-only":{"n_pred":105,"TP":60,"FP":23,"neutral":22,"FN":10,"recall":0.8571428571428571,"precision":0.7228915662650602,"f1":0.7843137254901961,"exact_recall":0.6142857142857143},"CodonRescore(single)":{"n_pred":93,"TP":56,"FP":16,"neutral":21,"FN":14,"recall":0.8,"precision":0.7777777777777778,"f1":0.7887323943661971,"exact_recall":0.6142857142857143},"CodonRescore(meta)":{"n_pred":98,"TP":60,"FP":17,"neutral":21,"FN":10,"recall":0.8571428571428571,"precision":0.7792207792207793,"f1":0.8163265306122449,"exact_recall":0.7285714285714285}},"aux":{"Pyrodigal-single":{"pruned":38,"rescued":9},"Pyrodigal-meta":{"pruned":9,"rescued":10}},"aux_detail":{"Pyrodigal-single":{"pruned_true":3,"rescued_true":1},"Pyrodigal-meta":{"pruned_true":1,"rescued_true":0}}},"Y. pestis plasmid pPCP1":{"length":9609,"n_truth":10,"n_neutral_features":0,"tau":-0.055768866247652586,"n_seeds":10,"trained":true,"n_shadow":56,"youden":0.592857142857143,"methods":{"LongORF>=300":{"n_pred":10,"TP":9,"FP":1,"neutral":0,"FN":1,"recall":0.9,"precision":0.9,"f1":0.9,"exact_recall":0.8},"Pyrodigal-meta":{"n_pred":9,"TP":9,"FP":0,"neutral":0,"FN":1,"recall":0.9,"precision":1.0,"f1":0.9473684210526316,"exact_recall":0.6},"CodonLLR-only":{"n_pred":16,"TP":9,"FP":7,"neutral":0,"FN":1,"recall":0.9,"precision":0.5625,"f1":0.6923076923076923,"exact_recall":0.8},"CodonRescore(meta)":{"n_pred":13,"TP":10,"FP":3,"neutral":0,"FN":0,"recall":1.0,"precision":0.7692307692307693,"f1":0.8695652173913044,"exact_recall":0.7}},"aux":{"Pyrodigal-meta":{"pruned":0,"rescued":4}},"aux_detail":{"Pyrodigal-meta":{"pruned_true":0,"rescued_true":1}}},"phiX174 phage":{"length":5386,"n_truth":8,"n_neutral_features":6,"tau":NaN,"n_seeds":0,"trained":false,"n_shadow":0,"youden":NaN,"methods":{"LongORF>=300":{"n_pred":11,"TP":5,"FP":5,"neutral":1,"FN":3,"recall":0.625,"precision":0.5,"f1":0.5555555555555556,"exact_recall":0.375},"Pyrodigal-meta":{"n_pred":7,"TP":6,"FP":0,"neutral":1,"FN":2,"recall":0.75,"precision":1.0,"f1":0.8571428571428571,"exact_recall":0.75}},"aux":{},"aux_detail":{}}},"analysis":{"bootstrap_f1_ci":{"Pyrodigal-single":[0.5948106442665322,0.7489173413116037],"Pyrodigal-meta":[0.7789731051344744,0.8965542879118061],"CodonRescore(single)":[0.7168092740822524,0.8521536670547147],"CodonRescore(meta)":[0.7519569471624266,0.8761083017277708],"CodonLLR-only":[0.7157894736842105,0.8446522976819846],"LongORF>=300":[0.6315353300378016,0.7915742793791574]},"sens_tau":{"single":[{"offset":-0.3,"f1":0.3333333333333333,"precision":0.20608108108108109,"recall":0.8714285714285714},{"offset":-0.2,"f1":0.3426966292134831,"precision":0.21328671328671328,"recall":0.8714285714285714},{"offset":-0.1,"f1":0.41355932203389834,"precision":0.27111111111111114,"recall":0.8714285714285714},{"offset":0.0,"f1":0.7887323943661971,"precision":0.7777777777777778,"recall":0.8},{"offset":0.1,"f1":0.7603305785123967,"precision":0.9019607843137255,"recall":0.6571428571428571},{"offset":0.2,"f1":0.7394957983193275,"precision":0.8979591836734694,"recall":0.6285714285714286},{"offset":0.3,"f1":0.7394957983193275,"precision":0.8979591836734694,"recall":0.6285714285714286},{"offset":0.4,"f1":0.7394957983193275,"precision":0.8979591836734694,"recall":0.6285714285714286}],"meta":[{"offset":-0.3,"f1":0.3506849315068493,"precision":0.21694915254237288,"recall":0.9142857142857143},{"offset":-0.2,"f1":0.3605633802816902,"precision":0.22456140350877193,"recall":0.9142857142857143},{"offset":-0.1,"f1":0.43537414965986393,"precision":0.2857142857142857,"recall":0.9142857142857143},{"offset":0.0,"f1":0.8163265306122449,"precision":0.7792207792207793,"recall":0.8571428571428571},{"offset":0.1,"f1":0.7868852459016394,"precision":0.9230769230769231,"recall":0.6857142857142857},{"offset":0.2,"f1":0.7666666666666667,"precision":0.92,"recall":0.6571428571428571},{"offset":0.3,"f1":0.7563025210084034,"precision":0.9183673469387755,"recall":0.6428571428571429},{"offset":0.4,"f1":0.7563025210084034,"precision":0.9183673469387755,"recall":0.6428571428571429}]},"sens_prune":{"single":[{"prune_len":150,"f1":0.6705202312138728,"precision":0.5631067961165048,"recall":0.8285714285714286},{"prune_len":300,"f1":0.7887323943661971,"precision":0.7777777777777778,"recall":0.8},{"prune_len":450,"f1":0.8000000000000002,"precision":0.8,"recall":0.8},{"prune_len":600,"f1":0.8000000000000002,"precision":0.8,"recall":0.8}],"meta":[{"prune_len":150,"f1":0.8026315789473685,"precision":0.7439024390243902,"recall":0.8714285714285714},{"prune_len":300,"f1":0.8163265306122449,"precision":0.7792207792207793,"recall":0.8571428571428571},{"prune_len":450,"f1":0.8251748251748252,"precision":0.8082191780821918,"recall":0.8428571428571429},{"prune_len":600,"f1":0.8251748251748252,"precision":0.8082191780821918,"recall":0.8428571428571429}]},"length_strat":{"Pyrodigal-single":[[14,25],[15,16],[13,13],[16,16]],"Pyrodigal-meta":[[16,25],[16,16],[13,13],[16,16]],"CodonRescore(single)":[[12,25],[15,16],[13,13],[16,16]],"CodonRescore(meta)":[[15,25],[16,16],[13,13],[16,16]]},"length_bins":[[0,300],[300,600],[600,1200],[1200,1000000]],"single_fp":{"n":43,"median_len":225.0,"in_rna":24,"overlap_true_gene_otherframe":0},"single_fp_len_lt300":38,"cdiph":{"single":{"n_pyro":2343,"n_final":2367,"pruned":45,"rescued":69,"pruned_median_len":201.0,"rescued_median_len":156.0},"meta":{"n_pyro":2296,"n_final":2355,"pruned":44,"rescued":103,"pruned_median_len":219.0,"rescued_median_len":165.0},"agree_single_meta_stop":0.9673452078032231,"GC":0.5352421959794875,"length":2463666,"n_seeds":1853,"tau":0.0008526997694174738,"youden":0.8702203101896449,"coding_density_single":0.8884394232010345},"chloro":{"length":154478,"GC":0.3629384119421536,"n_orfs90":1283,"n_seeds":50,"n_shadow":470,"tau":0.024868966804932037,"youden":0.9089361702127658,"seed_min_len":450,"n_truth":70,"n_neutral":34}},"records":{"A. thaliana chloroplast":{"length":154478,"truth":[[383,1444,-1,"photosystem II protein D1"],[2056,3570,-1,"maturase K"],[7017,7202,1,"photosystem II protein K"],[7583,7693,1,"photosystem II protein I"],[9938,11461,-1,"ATP synthase CF1 alpha subunit"],[13262,13507,-1,"ATP synthase CF0 C subunit"],[14021,14770,-1,"ATP synthase CF0 A subunit"],[15013,15723,-1,"ribosomal protein S2"],[15938,20068,-1,"RNA polymerase beta'' subunit"],[23111,26329,-1,"RNA polymerase beta subunit"],[28089,28178,1,"cytochrome b6/f complex subunit VIII"],[28707,28811,-1,"photosystem II protein M"],[32711,33772,1,"photosystem II protein D2"],[33720,35141,1,"photosystem II 44 kDa protein"],[35751,35939,1,"photosystem II protein Z"],[36938,37240,-1,"ribosomal protein S14"],[37375,39579,-1,"photosystem I P700 chlorophyll a apoprotein A2"],[39605,41857,-1,"photosystem I P700 chlorophyll a apoprotein A1"],[45223,45828,-1,"ribosomal protein S4"],[48677,49153,-1,"NADH dehydrogenase subunit J"],[49257,49934,-1,"NADH dehydrogenase subunit K"],[50001,50363,-1,"NADH dehydrogenase subunit 3"],[52265,52663,-1,"ATP synthase CF1 epsilon subunit"],[52660,54156,-1,"ATP synthase CF1 beta subunit"],[54958,56397,1,"ribulose-1,5-bisphosphate carboxylase/oxygenase large subunit"],[57075,58541,1,"acetyl-CoA carboxylase beta subunit"],[59247,59360,1,"photosystem I subunit VIII"],[59772,60326,1,"photosystem I assembly protein Ycf4"],[60741,61430,1,"envelope membrane protein"],[61657,62619,1,"cytochrome f"],[63538,63660,-1,"photosystem II protein J"],[63804,63920,-1,"photosystem II protein L"],[63942,64061,-1,"photosystem II protein VI"],[64071,64322,-1,"photosystem II protein V"],[65712,65807,1,"cytochrome b6/f complex subunit VI"],[65998,66111,1,"cytochrome b6/f complex subunit V"],[66929,67063,1,"photosystem I subunit IX"],[67488,67688,1,"ribosomal protein L33"],[67917,68222,1,"ribosomal protein S18"],[68512,68865,-1,"ribosomal protein L20"],[72371,73897,1,"photosystem II 47 kDa protein"],[74082,74183,1,"photosystem II protein T"],[74249,74380,-1,"photosystem II protein N"],[74485,74706,1,"photosystem II protein H"],[77901,78890,-1,"RNA polymerase alpha subunit"],[78960,79376,-1,"ribosomal protein S11"],[79489,79602,-1,"ribosomal protein L36"],[80068,80472,-1,"ribosomal protein S8"],[80696,81064,-1,"ribosomal protein L14"],[82826,83482,-1,"ribosomal protein S3"],[83467,83949,-1,"ribosomal protein L22"],[84005,84283,-1,"ribosomal protein S19"],[85862,86143,-1,"ribosomal protein L23"],[86474,93358,1,"Ycf2"],[97478,97945,-1,"ribosomal protein S7"],[109405,110436,1,"hypothetical protein"],[110398,112638,-1,"NADH dehydrogenase subunit 5"],[113449,113607,1,"ribosomal protein L32"],[114461,115447,1,"cytochrome c biogenesis protein"],[115665,117167,-1,"NADH dehydrogenase subunit 4"],[117318,117563,-1,"photosystem I subunit VII"],[117804,118109,-1,"NADH dehydrogenase subunit 4L"],[118377,118907,-1,"NADH dehydrogenase subunit 6"],[119244,119762,-1,"NADH dehydrogenase subunit I"],[122011,123192,-1,"NADH dehydrogenase subunit 7"],[123296,123562,-1,"ribosomal protein S15"],[123884,129244,-1,"hypothetical protein"],[140704,141171,1,"ribosomal protein S7"],[145291,152175,-1,"Ycf2"],[152506,152787,1,"ribosomal protein L23"]],"neutral":[[69611,69724,-1],[98562,98793,-1],[97999,98024,-1],[6149,6188,-1],[5084,5283,-1],[12654,12798,-1],[11529,11938,-1],[22653,23084,-1],[20251,21861,-1],[44466,44591,-1],[43524,43751,-1],[42584,42736,-1],[69611,69724,-1],[139856,140087,1],[140625,140650,1],[71812,71882,-1],[70653,70944,-1],[69910,70137,-1],[74841,74846,1],[75651,76292,1],[76481,76488,1],[77198,77672,1],[82644,82652,-1],[81189,81587,-1],[85454,85843,-1],[84337,84771,-1],[96388,97164,-1],[94941,95702,-1],[121457,122009,-1],[119847,120376,-1],[141485,142261,1],[142947,143708,1],[152806,153195,1],[153878,154312,1]],"methods":{"LongORF>=300":{"calls":[[54910,56397,1,"TP"],[61585,62619,1,"TP"],[68167,68559,1,"FP"],[109405,110436,1,"TP"],[130894,131289,1,"FP"],[140704,141171,1,"TP"],[152806,153207,1,"N"],[17576,17905,1,"FP"],[32693,33772,1,"TP"],[72371,73897,1,"TP"],[86474,93358,1,"TP"],[99863,100201,1,"FP"],[104336,104815,1,"FP"],[114461,115447,1,"TP"],[141485,142276,1,"N"],[153815,154312,1,"N"],[33690,35141,1,"TP"],[57075,58541,1,"TP"],[59772,60326,1,"TP"],[60741,61430,1,"TP"],[67917,68222,1,"TP"],[75804,76292,1,"N"],[77148,77672,1,"N"],[136788,137183,1,"FP"],[142920,143708,1,"N"],[121443,122021,-1,"N"],[119847,120308,-1,"N"],[119244,119762,-1,"TP"],[118377,118946,-1,"TP"],[117804,118109,-1,"TP"],[115665,117209,-1,"TP"],[101466,101861,-1,"FP"],[94941,95729,-1,"N"],[78960,79376,-1,"TP"],[77901,78890,-1,"TP"],[71811,72125,-1,"FP"],[50001,50363,-1,"TP"],[49257,49934,-1,"TP"],[22647,23105,-1,"N"],[11529,11831,-1,"N"],[123884,129244,-1,"TP"],[107360,107755,-1,"FP"],[97478,97945,-1,"TP"],[85442,85843,-1,"N"],[82826,83482,-1,"TP"],[80696,81064,-1,"TP"],[52265,52663,-1,"TP"],[48677,49201,-1,"TP"],[39605,41902,-1,"TP"],[36938,37240,-1,"TP"],[23111,26347,-1,"TP"],[15938,20104,-1,"TP"],[14021,14815,-1,"TP"],[9938,11461,-1,"TP"],[383,1444,-1,"TP"],[145291,152175,-1,"TP"],[138448,138786,-1,"FP"],[133834,134313,-1,"FP"],[122011,123219,-1,"TP"],[110398,112638,-1,"TP"],[96373,97164,-1,"N"],[84337,84834,-1,"N"],[83467,83949,-1,"TP"],[80068,80472,-1,"TP"],[68512,68877,-1,"TP"],[52660,54156,-1,"TP"],[45223,45828,-1,"TP"],[37375,39591,-1,"TP"],[20251,21672,-1,"N"],[15013,15723,-1,"TP"],[2056,3636,-1,"TP"]],"missed":[2,3,5,10,11,14,26,30,31,32,33,34,35,36,37,41,42,43,46,51,52,57,60,65,69]},"Pyrodigal-single":{"calls":[[3,113,1,"FP"],[383,1444,-1,"TP"],[1556,1837,-1,"FP"],[2056,3636,-1,"TP"],[5084,5368,-1,"N"],[7017,7202,1,"TP"],[9319,9441,-1,"FP"],[9938,11461,-1,"TP"],[11529,11831,-1,"N"],[13262,13555,-1,"TP"],[14021,14815,-1,"TP"],[15013,15723,-1,"TP"],[15938,20068,-1,"TP"],[20251,21672,-1,"N"],[22647,23105,-1,"N"],[23111,26347,-1,"TP"],[31485,31739,-1,"FP"],[32711,33772,1,"TP"],[33756,35141,1,"TP"],[35709,35939,1,"TP"],[37178,37351,1,"FP"],[37375,39579,-1,"TP"],[39605,41857,-1,"TP"],[43503,43751,-1,"N"],[44041,44265,-1,"FP"],[44457,44591,-1,"N"],[44807,45067,-1,"FP"],[45223,45828,-1,"TP"],[48677,49201,-1,"TP"],[49257,49934,-1,"TP"],[50001,50363,-1,"TP"],[52265,52663,-1,"TP"],[52660,54156,-1,"TP"],[54937,56397,1,"TP"],[57075,58541,1,"TP"],[59772,60326,1,"TP"],[60741,61430,1,"TP"],[61585,62619,1,"TP"],[63942,64061,-1,"TP"],[64071,64322,-1,"TP"],[65712,65807,1,"TP"],[66929,67063,1,"TP"],[67488,67688,1,"TP"],[67917,68222,1,"TP"],[68512,68865,-1,"TP"],[69910,70131,-1,"N"],[70641,70865,-1,"N"],[71811,72122,-1,"FP"],[72371,73897,1,"TP"],[74485,74706,1,"TP"],[75804,76292,1,"N"],[76808,77041,-1,"FP"],[77148,77672,1,"N"],[77901,78890,-1,"TP"],[78960,79376,-1,"TP"],[80068,80472,-1,"TP"],[80696,81064,-1,"TP"],[81189,81437,-1,"N"],[82826,83482,-1,"TP"],[83467,83949,-1,"TP"],[84005,84283,-1,"TP"],[84337,84834,-1,"N"],[85442,85843,-1,"N"],[85862,86143,-1,"TP"],[86474,93358,1,"TP"],[93495,93728,1,"FP"],[93831,94046,-1,"FP"],[94130,94342,-1,"FP"],[94941,95729,-1,"N"],[95867,96034,-1,"FP"],[96373,97164,-1,"N"],[97478,97945,-1,"TP"],[99590,99709,1,"FP"],[99830,100063,-1,"FP"],[101466,101861,-1,"FP"],[102256,102543,-1,"FP"],[102531,102797,-1,"FP"],[103306,103521,1,"FP"],[103644,103796,1,"FP"],[103921,104151,1,"FP"],[105992,106156,1,"FP"],[106479,106754,-1,"FP"],[107145,107321,-1,"FP"],[107360,107725,-1,"FP"],[109408,110436,1,"TP"],[110398,112638,-1,"TP"],[114461,115447,1,"TP"],[115665,117194,-1,"TP"],[117318,117563,-1,"TP"],[117804,118109,-1,"TP"],[118377,118946,-1,"TP"],[119244,119762,-1,"TP"],[119847,120308,-1,"N"],[121195,121323,-1,"FP"],[121443,122009,-1,"N"],[122011,123192,-1,"TP"],[123296,123562,-1,"TP"],[123884,129241,-1,"TP"],[130924,131289,1,"FP"],[131328,131504,1,"FP"],[131895,132170,1,"FP"],[132493,132657,-1,"FP"],[134498,134728,-1,"FP"],[134853,135005,-1,"FP"],[135128,135343,-1,"FP"],[135852,136118,1,"FP"],[136106,136393,1,"FP"],[136788,137183,1,"FP"],[138586,138819,1,"FP"],[138940,139059,-1,"FP"],[140704,141171,1,"TP"],[141485,142276,1,"N"],[142615,142782,1,"FP"],[142920,143708,1,"N"],[144307,144519,1,"FP"],[144603,144818,1,"FP"],[144921,145154,-1,"FP"],[145291,152175,-1,"TP"],[152506,152787,1,"TP"],[152806,153207,1,"N"],[153815,154312,1,"N"],[154356,154478,-1,"FP"]],"missed":[3,10,11,15,26,30,31,35,41,42,46,57]},"Pyrodigal-meta":{"calls":[[383,1444,-1,"TP"],[2056,3636,-1,"TP"],[5084,5368,-1,"N"],[7583,7693,1,"TP"],[9938,11461,-1,"TP"],[11529,11831,-1,"N"],[12628,12798,-1,"N"],[13262,13507,-1,"TP"],[14021,14770,-1,"TP"],[15013,15723,-1,"TP"],[15938,20068,-1,"TP"],[20251,21672,-1,"N"],[22647,23105,-1,"N"],[23111,26347,-1,"TP"],[32711,33772,1,"TP"],[33756,35141,1,"TP"],[35709,35939,1,"TP"],[36938,37240,-1,"TP"],[37375,39579,-1,"TP"],[39605,41857,-1,"TP"],[43503,43751,-1,"N"],[44457,44591,-1,"N"],[44807,45067,-1,"FP"],[45223,45828,-1,"TP"],[48677,49201,-1,"TP"],[49257,49934,-1,"TP"],[50001,50363,-1,"TP"],[51059,51175,1,"FP"],[52265,52663,-1,"TP"],[52660,54156,-1,"TP"],[54958,56397,1,"TP"],[57075,58541,1,"TP"],[59247,59360,1,"TP"],[59772,60326,1,"TP"],[60741,61430,1,"TP"],[61657,62619,1,"TP"],[63538,63660,-1,"TP"],[63942,64061,-1,"TP"],[64071,64322,-1,"TP"],[65998,66111,1,"TP"],[66929,67063,1,"TP"],[67488,67688,1,"TP"],[67917,68222,1,"TP"],[68176,68559,1,"FP"],[68512,68865,-1,"TP"],[69910,70131,-1,"N"],[70641,70865,-1,"N"],[71811,72125,-1,"FP"],[72371,73897,1,"TP"],[74485,74706,1,"TP"],[75290,75544,-1,"FP"],[75804,76292,1,"N"],[77148,77672,1,"N"],[77901,78890,-1,"TP"],[78960,79376,-1,"TP"],[80068,80472,-1,"TP"],[80696,81064,-1,"TP"],[81189,81437,-1,"N"],[82677,82808,1,"FP"],[82826,83482,-1,"TP"],[83467,83949,-1,"TP"],[84005,84283,-1,"TP"],[84337,84834,-1,"N"],[85442,85843,-1,"N"],[85862,86143,-1,"TP"],[86474,93358,1,"TP"],[93495,93728,1,"FP"],[94130,94342,-1,"FP"],[94941,95729,-1,"N"],[96373,97164,-1,"N"],[97478,97945,-1,"TP"],[107360,107755,-1,"FP"],[109408,110436,1,"TP"],[110398,112638,-1,"TP"],[114461,115447,1,"TP"],[115665,117185,-1,"TP"],[117318,117563,-1,"TP"],[117804,118109,-1,"TP"],[118377,118946,-1,"TP"],[119244,119762,-1,"TP"],[119847,120308,-1,"N"],[120442,120606,-1,"FP"],[121443,122009,-1,"N"],[122011,123192,-1,"TP"],[123296,123562,-1,"TP"],[123884,129241,-1,"TP"],[130894,131289,1,"FP"],[140704,141171,1,"TP"],[141485,142276,1,"N"],[142920,143708,1,"N"],[144307,144519,1,"FP"],[144921,145154,-1,"FP"],[145291,152175,-1,"TP"],[152506,152787,1,"TP"],[152806,153207,1,"N"],[153815,154312,1,"N"],[154366,154476,1,"FP"]],"missed":[2,10,11,31,34,41,42,46,57]},"CodonLLR-only":{"calls":[[383,1444,-1,"TP"],[2056,3636,-1,"TP"],[5084,5368,-1,"N"],[5535,5627,-1,"FP"],[5628,5798,1,"FP"],[7583,7693,1,"TP"],[9938,11461,-1,"TP"],[11529,11831,-1,"N"],[12386,12481,-1,"FP"],[13262,13555,-1,"TP"],[14021,14815,-1,"TP"],[15013,15723,-1,"TP"],[15938,20104,-1,"TP"],[20091,20240,1,"FP"],[20251,21672,-1,"N"],[22647,23105,-1,"N"],[23111,26347,-1,"TP"],[28707,28811,-1,"TP"],[33690,35141,1,"TP"],[35709,35939,1,"TP"],[37375,39591,-1,"TP"],[39605,41902,-1,"TP"],[42584,42700,-1,"N"],[43503,43751,-1,"N"],[44457,44591,-1,"N"],[44807,45067,-1,"FP"],[45223,45828,-1,"TP"],[48677,49201,-1,"TP"],[49257,49934,-1,"TP"],[50001,50363,-1,"TP"],[51873,52004,1,"FP"],[52265,52663,-1,"TP"],[52660,54156,-1,"TP"],[54910,56397,1,"TP"],[57075,58541,1,"TP"],[59117,59260,-1,"FP"],[59247,59360,1,"TP"],[59772,60326,1,"TP"],[60741,61430,1,"TP"],[61585,62619,1,"TP"],[63263,63379,1,"FP"],[63538,63660,-1,"TP"],[63804,63920,-1,"TP"],[63942,64061,-1,"TP"],[64071,64322,-1,"TP"],[65998,66111,1,"TP"],[66195,66296,1,"FP"],[66929,67063,1,"TP"],[67917,68222,1,"TP"],[68512,68877,-1,"TP"],[69910,70131,-1,"N"],[70641,70865,-1,"N"],[71811,72125,-1,"FP"],[72371,73897,1,"TP"],[74096,74224,-1,"FP"],[74485,74706,1,"TP"],[74845,75003,1,"FP"],[75804,76292,1,"N"],[77148,77672,1,"N"],[77901,78890,-1,"TP"],[78960,79376,-1,"TP"],[80068,80472,-1,"TP"],[80696,81064,-1,"TP"],[81189,81437,-1,"N"],[81382,81495,1,"FP"],[82826,83482,-1,"TP"],[83467,83949,-1,"TP"],[84005,84283,-1,"TP"],[84337,84834,-1,"N"],[85442,85843,-1,"N"],[85862,86143,-1,"TP"],[86474,93358,1,"TP"],[94130,94342,-1,"FP"],[94941,95729,-1,"N"],[96373,97164,-1,"N"],[97478,97945,-1,"TP"],[100947,101063,1,"FP"],[101474,101614,1,"FP"],[102838,102975,1,"FP"],[105297,105386,1,"FP"],[109405,110436,1,"TP"],[110398,112638,-1,"TP"],[114461,115447,1,"TP"],[115665,117209,-1,"TP"],[117318,117599,-1,"TP"],[117804,118109,-1,"TP"],[118377,118946,-1,"TP"],[119244,119762,-1,"TP"],[119847,120308,-1,"N"],[121443,122021,-1,"N"],[122011,123219,-1,"TP"],[123296,123562,-1,"TP"],[123884,129244,-1,"TP"],[133263,133352,-1,"FP"],[135674,135811,-1,"FP"],[137035,137175,-1,"FP"],[137586,137702,-1,"FP"],[140704,141171,1,"TP"],[141485,142276,1,"N"],[142920,143708,1,"N"],[144307,144519,1,"FP"],[145291,152175,-1,"TP"],[152506,152787,1,"TP"],[152806,153207,1,"N"],[153815,154312,1,"N"]],"missed":[2,10,12,15,34,37,41,42,46,57]},"CodonRescore(single)":{"calls":[[383,1444,-1,"TP"],[2056,3636,-1,"TP"],[5084,5368,-1,"N"],[5628,5798,1,"FP"],[9938,11461,-1,"TP"],[11529,11831,-1,"N"],[13262,13555,-1,"TP"],[14021,14815,-1,"TP"],[15013,15723,-1,"TP"],[15938,20068,-1,"TP"],[20091,20240,1,"FP"],[20251,21672,-1,"N"],[22647,23105,-1,"N"],[23111,26347,-1,"TP"],[32711,33772,1,"TP"],[33756,35141,1,"TP"],[35709,35939,1,"TP"],[37375,39579,-1,"TP"],[39605,41857,-1,"TP"],[43503,43751,-1,"N"],[44457,44591,-1,"N"],[44807,45067,-1,"FP"],[45223,45828,-1,"TP"],[48677,49201,-1,"TP"],[49257,49934,-1,"TP"],[50001,50363,-1,"TP"],[51873,52004,1,"FP"],[52265,52663,-1,"TP"],[52660,54156,-1,"TP"],[54937,56397,1,"TP"],[57075,58541,1,"TP"],[59117,59260,-1,"FP"],[59772,60326,1,"TP"],[60741,61430,1,"TP"],[61585,62619,1,"TP"],[63538,63660,-1,"TP"],[63942,64061,-1,"TP"],[64071,64322,-1,"TP"],[66929,67063,1,"TP"],[67917,68222,1,"TP"],[68512,68865,-1,"TP"],[69910,70131,-1,"N"],[70641,70865,-1,"N"],[71811,72122,-1,"FP"],[72371,73897,1,"TP"],[74096,74224,-1,"FP"],[74485,74706,1,"TP"],[74845,75003,1,"FP"],[75804,76292,1,"N"],[77148,77672,1,"N"],[77901,78890,-1,"TP"],[78960,79376,-1,"TP"],[80068,80472,-1,"TP"],[80696,81064,-1,"TP"],[81189,81437,-1,"N"],[82826,83482,-1,"TP"],[83467,83949,-1,"TP"],[84005,84283,-1,"TP"],[84337,84834,-1,"N"],[85442,85843,-1,"N"],[85862,86143,-1,"TP"],[86474,93358,1,"TP"],[94130,94342,-1,"FP"],[94941,95729,-1,"N"],[96373,97164,-1,"N"],[97478,97945,-1,"TP"],[101466,101861,-1,"FP"],[102838,102975,1,"FP"],[107360,107725,-1,"FP"],[109408,110436,1,"TP"],[110398,112638,-1,"TP"],[114461,115447,1,"TP"],[115665,117194,-1,"TP"],[117318,117563,-1,"TP"],[117804,118109,-1,"TP"],[118377,118946,-1,"TP"],[119244,119762,-1,"TP"],[119847,120308,-1,"N"],[121443,122009,-1,"N"],[122011,123192,-1,"TP"],[123296,123562,-1,"TP"],[123884,129241,-1,"TP"],[130924,131289,1,"FP"],[135674,135811,-1,"FP"],[136788,137183,1,"FP"],[140704,141171,1,"TP"],[141485,142276,1,"N"],[142920,143708,1,"N"],[144307,144519,1,"FP"],[145291,152175,-1,"TP"],[152506,152787,1,"TP"],[152806,153207,1,"N"],[153815,154312,1,"N"]],"missed":[2,3,10,11,15,26,31,34,35,37,41,42,46,57]},"CodonRescore(meta)":{"calls":[[383,1444,-1,"TP"],[2056,3636,-1,"TP"],[5084,5368,-1,"N"],[5628,5798,1,"FP"],[7583,7693,1,"TP"],[9938,11461,-1,"TP"],[11529,11831,-1,"N"],[13262,13507,-1,"TP"],[14021,14770,-1,"TP"],[15013,15723,-1,"TP"],[15938,20068,-1,"TP"],[20091,20240,1,"FP"],[20251,21672,-1,"N"],[22647,23105,-1,"N"],[23111,26347,-1,"TP"],[32711,33772,1,"TP"],[33756,35141,1,"TP"],[35709,35939,1,"TP"],[36938,37240,-1,"TP"],[37375,39579,-1,"TP"],[39605,41857,-1,"TP"],[43503,43751,-1,"N"],[44457,44591,-1,"N"],[44807,45067,-1,"FP"],[45223,45828,-1,"TP"],[48677,49201,-1,"TP"],[49257,49934,-1,"TP"],[50001,50363,-1,"TP"],[51873,52004,1,"FP"],[52265,52663,-1,"TP"],[52660,54156,-1,"TP"],[54958,56397,1,"TP"],[57075,58541,1,"TP"],[59117,59260,-1,"FP"],[59247,59360,1,"TP"],[59772,60326,1,"TP"],[60741,61430,1,"TP"],[61657,62619,1,"TP"],[63538,63660,-1,"TP"],[63942,64061,-1,"TP"],[64071,64322,-1,"TP"],[65998,66111,1,"TP"],[66929,67063,1,"TP"],[67917,68222,1,"TP"],[68176,68559,1,"FP"],[68512,68865,-1,"TP"],[69910,70131,-1,"N"],[70641,70865,-1,"N"],[71811,72125,-1,"FP"],[72371,73897,1,"TP"],[74096,74224,-1,"FP"],[74485,74706,1,"TP"],[74845,75003,1,"FP"],[75804,76292,1,"N"],[77148,77672,1,"N"],[77901,78890,-1,"TP"],[78960,79376,-1,"TP"],[80068,80472,-1,"TP"],[80696,81064,-1,"TP"],[81189,81437,-1,"N"],[82826,83482,-1,"TP"],[83467,83949,-1,"TP"],[84005,84283,-1,"TP"],[84337,84834,-1,"N"],[85442,85843,-1,"N"],[85862,86143,-1,"TP"],[86474,93358,1,"TP"],[94130,94342,-1,"FP"],[94941,95729,-1,"N"],[96373,97164,-1,"N"],[97478,97945,-1,"TP"],[101474,101614,1,"FP"],[102838,102975,1,"FP"],[107360,107755,-1,"FP"],[109408,110436,1,"TP"],[110398,112638,-1,"TP"],[114461,115447,1,"TP"],[115665,117185,-1,"TP"],[117318,117563,-1,"TP"],[117804,118109,-1,"TP"],[118377,118946,-1,"TP"],[119244,119762,-1,"TP"],[119847,120308,-1,"N"],[121443,122009,-1,"N"],[122011,123192,-1,"TP"],[123296,123562,-1,"TP"],[123884,129241,-1,"TP"],[130894,131289,1,"FP"],[135674,135811,-1,"FP"],[137035,137175,-1,"FP"],[140704,141171,1,"TP"],[141485,142276,1,"N"],[142920,143708,1,"N"],[144307,144519,1,"FP"],[145291,152175,-1,"TP"],[152506,152787,1,"TP"],[152806,153207,1,"N"],[153815,154312,1,"N"]],"missed":[2,10,11,31,34,37,41,42,46,57]}}},"Y. pestis plasmid pPCP1":{"length":9609,"truth":[[87,1109,1,"putative transposase"],[1106,1888,1,"transposase/IS protein"],[2925,3119,1,"putative replication regulatory protein"],[3486,3857,1,"hypothetical protein"],[4343,4780,1,"pesticin immunity protein"],[4815,5888,-1,"pesticin"],[6005,6421,1,"hypothetical protein"],[6664,7602,1,"outer membrane protease"],[7789,8088,-1,"putative transcriptional regulator"],[8088,8360,-1,"hypothetical protein"]],"neutral":[],"methods":{"LongORF>=300":{"calls":[[6664,7602,1,"TP"],[1106,1888,1,"TP"],[4343,4780,1,"TP"],[6005,6421,1,"TP"],[87,1109,1,"TP"],[3486,3857,1,"TP"],[7789,8088,-1,"TP"],[8088,8441,-1,"TP"],[4815,5888,-1,"TP"],[2831,3175,-1,"FP"]],"missed":[2]},"Pyrodigal-meta":{"calls":[[87,1109,1,"TP"],[1109,1888,1,"TP"],[2925,3119,1,"TP"],[4355,4780,1,"TP"],[4815,5888,-1,"TP"],[6005,6421,1,"TP"],[6664,7602,1,"TP"],[7789,8088,-1,"TP"],[8088,8429,-1,"TP"]],"missed":[3]},"CodonLLR-only":{"calls":[[87,1109,1,"TP"],[1106,1888,1,"TP"],[1831,1935,-1,"FP"],[2657,2803,1,"FP"],[2925,3119,1,"TP"],[3377,3493,-1,"FP"],[3739,3831,1,"FP"],[4343,4780,1,"TP"],[4815,5888,-1,"TP"],[6005,6421,1,"TP"],[6664,7602,1,"TP"],[7789,8088,-1,"TP"],[8088,8441,-1,"TP"],[8738,8839,1,"FP"],[8906,9010,1,"FP"],[9132,9347,-1,"FP"]],"missed":[3]},"CodonRescore(meta)":{"calls":[[87,1109,1,"TP"],[1109,1888,1,"TP"],[2657,2803,1,"FP"],[2925,3119,1,"TP"],[3486,3857,1,"TP"],[4355,4780,1,"TP"],[4815,5888,-1,"TP"],[6005,6421,1,"TP"],[6664,7602,1,"TP"],[7789,8088,-1,"TP"],[8088,8429,-1,"TP"],[8766,9044,1,"FP"],[9132,9347,-1,"FP"]],"missed":[]}}},"phiX174 phage":{"length":5386,"truth":[[51,221,1,"gene K protein"],[133,393,1,"DNA maturation protein"],[390,848,1,"capsid morphogenesis protein"],[568,843,1,"cell lysis protein"],[848,964,1,"core protein, DNA condensation protein"],[1001,2284,1,"major coat protein"],[2395,2922,1,"major spike protein"],[2931,3917,1,"minor spike protein, adsorption"]],"neutral":[[3981,5386,1],[1,136,1],[4497,5386,1],[1,136,1],[5075,5386,1],[1,51,1]],"methods":{"LongORF>=300":{"calls":[[520,843,1,"TP"],[2350,2922,1,"TP"],[3073,3684,1,"FP"],[3946,4263,1,"N"],[1001,2284,1,"TP"],[390,848,1,"TP"],[2931,3917,1,"TP"],[1772,2167,-1,"FP"],[1094,1651,-1,"FP"],[2880,3449,-1,"FP"],[474,821,-1,"FP"]],"missed":[0,1,4]},"Pyrodigal-meta":{"calls":[[51,221,1,"TP"],[390,848,1,"TP"],[848,964,1,"TP"],[1001,2284,1,"TP"],[2395,2922,1,"TP"],[2931,3917,1,"TP"],[3981,5384,1,"N"]],"missed":[1,3]}}}}};
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const f3 = x => (x == null || isNaN(x)) ? "–" : x.toFixed(3);
+const GEN = Object.keys(D.records);
+const SHORT = {"A. thaliana chloroplast":"A. thaliana chloroplast","Y. pestis plasmid pPCP1":"Y. pestis plasmid","phiX174 phage":"phiX174 phage"};
+const MORDER = ["LongORF>=300","Pyrodigal-single","Pyrodigal-meta","CodonLLR-only","CodonRescore(single)","CodonRescore(meta)"];
+const MLAB = {"LongORF>=300":"Long ORF ≥300","Pyrodigal-single":"Pyrodigal single","Pyrodigal-meta":"Pyrodigal meta","CodonLLR-only":"Codon LLR only","CodonRescore(single)":"CodonRescore (single)","CodonRescore(meta)":"CodonRescore (meta)"};
+let S = {g: GEN[0], m: "CodonRescore(single)", sm: "single"};
+
+function el(tag, attrs, parent, text){ const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+function chip(parent, label, pressed, fn, disabled){ const b = document.createElement("button"); b.className = "chip"; b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", pressed); if (disabled) { b.disabled = true; b.style.opacity = .4; b.title = "Not applicable on this genome"; } b.onclick = fn; parent.appendChild(b); return b; }
+const avail = () => MORDER.filter(m => D.benchmark[S.g].methods[m]);
+
+function controls(){
+  $("genomes").innerHTML = ""; GEN.forEach(g => chip($("genomes"), SHORT[g], g === S.g, () => { S.g = g; if (!avail().includes(S.m)) S.m = avail().includes("Pyrodigal-meta") ? "Pyrodigal-meta" : avail()[0]; render(); }));
+  $("methods").innerHTML = ""; MORDER.forEach(m => chip($("methods"), MLAB[m], m === S.m, () => { S.m = m; render(); }, !avail().includes(m)));
+}
+
+function tiles(){
+  const s = D.benchmark[S.g].methods[S.m]; const ci = S.g === GEN[0] ? D.analysis.bootstrap_f1_ci[S.m] : null;
+  const items = [["Precision", f3(s.precision), s.TP + " correct of " + (s.TP + s.FP) + " scored calls"],
+    ["Recall", f3(s.recall), (D.benchmark[S.g].n_truth - s.FN) + " of " + D.benchmark[S.g].n_truth + " genes found"],
+    ["F1", f3(s.f1), ci ? "95% CI " + ci[0].toFixed(2) + "–" + ci[1].toFixed(2) : "interval not computed"],
+    ["False positives", s.FP, s.neutral + " neutral calls excluded"],
+    ["Exact start+stop", f3(s.exact_recall), "recall with start also matching"]];
+  $("tiles").innerHTML = items.map(i => `<div class="tile"><div class="k">${i[0]}</div><div class="v">${i[1]}</div><div class="n">${i[2]}</div></div>`).join("");
+  const b = D.benchmark[S.g];
+  const n = $("small");
+  if (b.n_truth < 20) { n.hidden = false; n.innerHTML = `<b>Small sample.</b> This genome has only ${b.n_truth} evaluable genes${b.trained ? "" : "; CodonRescore could not train (too few long ORFs)"}. One gene changes recall by ${(100 / b.n_truth).toFixed(0)} points.`; } else n.hidden = true;
+}
+
+function track(){
+  const svg = $("track"); svg.innerHTML = "";
+  const R = D.records[S.g], L = R.length, x0 = 60, W = 1020, sx = p => x0 + p / L * W;
+  const missed = new Set(R.methods[S.m] ? R.methods[S.m].missed : []);
+  const lanes = [{y: 70, name: "Annotation"}, {y: 175, name: "Calls"}];
+  lanes.forEach(l => { el("line", {x1: x0, x2: x0 + W, y1: l.y, y2: l.y, stroke: "var(--line)"}, svg); el("text", {x: 0, y: l.y + 4}, svg, l.name); });
+  for (let i = 0; i <= 5; i++) { const p = L * i / 5; el("line", {x1: sx(p), x2: sx(p), y1: 225, y2: 230, stroke: "var(--muted)"}, svg); el("text", {x: sx(p), y: 244, "text-anchor": i === 0 ? "start" : i === 5 ? "end" : "middle"}, svg, (p / 1000).toFixed(L > 50000 ? 0 : 1) + " kb"); }
+  const gene = (b, e, st, y, cls, info) => {
+    const w = Math.max(1.6, sx(e) - sx(b)), h = 26, yy = st > 0 ? y - h - 2 : y + 2;
+    const r = el("rect", {x: sx(b), y: yy, width: w, height: h, rx: 1.5}, svg);
+    if (cls === "tp") { r.setAttribute("fill", "var(--tp)"); }
+    else if (cls === "fp") { r.setAttribute("fill", "var(--fp)"); }
+    else if (cls === "miss") { r.setAttribute("fill", "none"); r.setAttribute("stroke", "var(--miss)"); r.setAttribute("stroke-width", "1.4"); r.setAttribute("stroke-dasharray", "3 2"); }
+    else if (cls === "neu") { r.setAttribute("fill", "var(--neutral)"); }
+    r.style.cursor = "pointer";
+    r.addEventListener("mouseenter", () => $("readout").textContent = info);
+    r.addEventListener("focus", () => $("readout").textContent = info);
+    // widen hit target
+    return r;
+  };
+  R.neutral.forEach(n => gene(n[0], n[1], n[2], lanes[0].y, "neu", `Neutral annotation ${n[0]}–${n[1]} (${n[2] > 0 ? "+" : "−"}), multi-exon or pseudo, not scored`));
+  R.truth.forEach((t, i) => gene(t[0], t[1], t[2], lanes[0].y, missed.has(i) ? "miss" : "tp", `${t[3] || "CDS"} · ${t[0]}–${t[1]} (${t[2] > 0 ? "+" : "−"}) · ${t[1] - t[0] + 1} nt · ${missed.has(i) ? "MISSED by " + MLAB[S.m] : "found"}`));
+  const M = R.methods[S.m];
+  if (M) M.calls.forEach(c => gene(c[0], c[1], c[2], lanes[1].y, c[3] === "TP" ? "tp" : c[3] === "FP" ? "fp" : "neu", `${c[3] === "TP" ? "Correct call" : c[3] === "FP" ? "False positive" : "Neutral call"} · ${c[0]}–${c[1]} (${c[2] > 0 ? "+" : "−"}) · ${c[1] - c[0] + 1} nt`));
+  el("text", {x: x0 + W, y: 14, "text-anchor": "end"}, svg, "▲ forward strand above centre line, ▼ reverse below");
+  $("tlegend").innerHTML = '<span><i style="background:var(--tp)"></i>Correct / found</span><span><i style="background:var(--fp)"></i>False positive</span><span><i style="border:1.4px dashed var(--miss)"></i>Missed gene</span><span><i style="background:var(--neutral)"></i>Neutral (not scored)</span>';
+  $("readout").innerHTML = "&nbsp;";
+}
+
+function cmp(){
+  const svg = $("cmp"); svg.innerHTML = ""; const ms = avail(), B = D.benchmark[S.g].methods, x0 = 150, W = 340, rh = 38;
+  for (let i = 0; i <= 4; i++) { const x = x0 + W * i / 4; el("line", {x1: x, x2: x, y1: 4, y2: 8 + rh * ms.length, stroke: "var(--grid)"}, svg); el("text", {x, y: 24 + rh * ms.length, "text-anchor": "middle"}, svg, (i / 4).toFixed(2)); }
+  ms.forEach((m, i) => {
+    const y = 10 + i * rh, s = B[m], g = el("g", {style: "cursor:pointer"}, svg); g.addEventListener("click", () => { S.m = m; render(); });
+    el("rect", {x: 0, y: y - 4, width: 520, height: rh - 2, fill: m === S.m ? "var(--accent-bg)" : "transparent", rx: 4}, g);
+    el("text", {x: 6, y: y + 16, style: "fill:var(--ink)"}, g, MLAB[m].replace("CodonRescore","CodonResc."));
+    el("rect", {x: x0, y: y + 6, width: Math.max(1, s.f1 * W), height: 14, rx: 2, fill: m.startsWith("CodonRescore") ? "var(--fp)" : m.startsWith("Pyrodigal") ? "var(--tp)" : "var(--neutral)"}, g);
+    el("text", {x: x0 + s.f1 * W + 5, y: y + 17}, g, s.f1.toFixed(3));
+    el("circle", {cx: x0 + s.precision * W, cy: y + 27, r: 3.5, fill: "var(--ink)"}, g);
+    const dx = x0 + s.recall * W; el("path", {d: `M${dx} ${y + 23}l4 4-4 4-4-4z`, fill: "var(--ink2)"}, g);
+  });
+  svg.setAttribute("viewBox", `0 0 520 ${34 + rh * ms.length}`);
+  $("cmptable").innerHTML = "<tr><th>Method</th><th>Calls</th><th>TP</th><th>FP</th><th>Prec</th><th>Rec</th><th>F1</th></tr>" + ms.map(m => { const s = B[m]; return `<tr class="${m === S.m ? "sel" : ""}"><td>${MLAB[m]}</td><td>${s.n_pred}</td><td>${s.TP}</td><td>${s.FP}</td><td>${f3(s.precision)}</td><td>${f3(s.recall)}</td><td>${f3(s.f1)}</td></tr>`; }).join("");
+}
+
+function sens(){
+  const A = D.analysis, rows = A.sens_tau[S.sm], i = +$("sens").value, base = D.benchmark[GEN[0]].methods["Pyrodigal-" + S.sm];
+  $("sensmode").innerHTML = ""; ["single", "meta"].forEach(k => chip($("sensmode"), "CodonRescore (" + k + ")", S.sm === k, () => { S.sm = k; sens(); }));
+  const r = rows[i]; $("sensval").textContent = "Δτ = " + (r.offset > 0 ? "+" : "") + r.offset.toFixed(1);
+  $("sensread").innerHTML = `F1 <b>${f3(r.f1)}</b> · precision ${f3(r.precision)} · recall ${f3(r.recall)} · unmodified Pyrodigal-${S.sm} F1 ${f3(base.f1)} (${r.f1 >= base.f1 ? "+" : ""}${(r.f1 - base.f1).toFixed(3)})`;
+  const svg = $("sensplot"); svg.innerHTML = ""; const x0 = 36, W = 470, y0 = 14, H = 170, X = k => x0 + k / 7 * W, Y = v => y0 + (1 - (v - 0.3) / 0.6) * H;
+  [0.3, 0.5, 0.7, 0.9].forEach(v => { el("line", {x1: x0, x2: x0 + W, y1: Y(v), y2: Y(v), stroke: "var(--grid)"}, svg); el("text", {x: 0, y: Y(v) + 4}, svg, v.toFixed(1)); });
+  rows.forEach((q, k) => el("text", {x: X(k), y: 206, "text-anchor": "middle"}, svg, (q.offset > 0 ? "+" : "") + q.offset.toFixed(1)));
+  el("line", {x1: x0, x2: x0 + W, y1: Y(base.f1), y2: Y(base.f1), stroke: "var(--tp)", "stroke-dasharray": "2 3"}, svg);
+  el("path", {d: rows.map((q, k) => (k ? "L" : "M") + X(k) + " " + Y(q.f1)).join(""), fill: "none", stroke: "var(--fp)", "stroke-width": 2}, svg);
+  rows.forEach((q, k) => el("circle", {cx: X(k), cy: Y(q.f1), r: k === i ? 6 : 3, fill: k === i ? "var(--fp)" : "var(--surface)", stroke: "var(--fp)", "stroke-width": 2}, svg));
+}
+
+function lenplot(){
+  const svg = $("len"); svg.innerHTML = ""; const st = D.analysis.length_strat, names = ["Pyrodigal-single", "Pyrodigal-meta", "CodonRescore(single)", "CodonRescore(meta)"], cols = ["var(--tp)", "var(--tp)", "var(--fp)", "var(--fp)"];
+  const labs = ["<300 nt", "300–599", "600–1199", "≥1200"], x0 = 34, W = 470, H = 170, y0 = 14, gw = W / 4;
+  [0, .25, .5, .75, 1].forEach(v => { const y = y0 + (1 - v) * H; el("line", {x1: x0, x2: x0 + W, y1: y, y2: y, stroke: "var(--grid)"}, svg); el("text", {x: 0, y: y + 4}, svg, v.toFixed(2)); });
+  labs.forEach((l, b) => {
+    names.forEach((n, k) => { const [h, t] = st[n][b], v = h / t, bw = 18, x = x0 + b * gw + 12 + k * (bw + 4), y = y0 + (1 - v) * H;
+      const r = el("rect", {x, y, width: bw, height: Math.max(1, v * H), fill: cols[k], rx: 2, opacity: k % 2 ? 1 : .55}, svg); const tt = el("title", {}, r, `${MLAB[n]}: ${h}/${t}`); });
+    el("text", {x: x0 + b * gw + gw / 2, y: 204, "text-anchor": "middle"}, svg, l);
+    el("text", {x: x0 + b * gw + gw / 2, y: 220, "text-anchor": "middle"}, svg, "n=" + st["Pyrodigal-meta"][b][1]);
+  });
+  $("llegend").innerHTML = '<span><i style="background:var(--tp);opacity:.55"></i>Pyrodigal single</span><span><i style="background:var(--tp)"></i>Pyrodigal meta</span><span><i style="background:var(--fp);opacity:.55"></i>CodonRescore single</span><span><i style="background:var(--fp)"></i>CodonRescore meta</span>';
+}
+
+function panels(){
+  const a = D.analysis, f = a.single_fp, c = a.cdiph;
+  $("anat").innerHTML = [["False positives (Pyrodigal single)", f.n], ["Shorter than 300 nt", a.single_fp_len_lt300], ["Median length", f.median_len + " nt"], ["Overlap an annotated tRNA or rRNA gene", f.in_rna], ["Overlap a true protein gene in another frame", f.overlap_true_gene_otherframe], ["Pruned by CodonRescore (3 were true genes)", D.benchmark[GEN[0]].aux["Pyrodigal-single"].pruned]].map(r => `<div class="stat"><span>${r[0]}</span><span>${r[1]}</span></div>`).join("");
+  $("cd").innerHTML = [["Genome length / GC", (c.length / 1e6).toFixed(2) + " Mb / " + (c.GC * 100).toFixed(1) + "%"], ["Pyrodigal single / meta calls", c.single.n_pyro.toLocaleString() + " / " + c.meta.n_pyro.toLocaleString()], ["Single vs meta stop agreement", f3(c.agree_single_meta_stop)], ["Seed ORFs / Youden J", c.n_seeds.toLocaleString() + " / " + c.youden.toFixed(3)], ["Pruned / rescued (single)", c.single.pruned + " / " + c.single.rescued], ["Pruned / rescued (meta)", c.meta.pruned + " / " + c.meta.rescued]].map(r => `<div class="stat"><span>${r[0]}</span><span>${r[1]}</span></div>`).join("");
+}
+
+function render(){ controls(); tiles(); track(); cmp(); }
+$("sens").addEventListener("input", sens);
+render(); sens(); lenplot(); panels();
+</script>
